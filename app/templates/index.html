@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Cálculo trazable de composición polimérica de laminados para Aglurep v1.">
+  <title>Calculadora de composición Aglurep v1</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <div><p class="eyebrow"><span class="brand-mark" aria-hidden="true">A</span> AGLUREP <span class="separator">/</span> FORMULACIÓN DE MATERIALES</p>
+      <h1>Calculadora de composición <span>Aglurep v1</span></h1>
+      <p class="intro">Combina laminados, calcula su composición polimérica y verifica los límites de tu formulación.</p></div>
+      <a class="config-link" href="#configuration">Configuración técnica ↓</a>
+    </header>
+
+    <div class="workspace-note"><span class="dot" aria-hidden="true"></span> Cálculo en el backend · PET, PE, PA y EVOH <span>La mezcla se pierde al recargar. Exporta para conservarla.</span></div>
+    <div id="errors" class="error-box" role="alert" hidden></div>
+
+    <section class="panel" aria-labelledby="laminate-title">
+      <div class="panel-heading">
+        <div><p class="eyebrow">01 / MATERIALES DE ENTRADA</p><h2 id="laminate-title">Mezcla activa <span id="count-badge" class="count-badge">0</span></h2></div>
+        <button id="add" class="button secondary" type="button" disabled>+ Agregar laminado</button>
+      </div>
+      <p class="section-help">Ingresa la masa en kg y los espesores en µm. Una capa ausente tiene espesor 0. PE se calcula por diferencia.</p>
+      <div class="table-scroll" role="region" aria-label="Laminados editables" tabindex="0">
+        <table class="input-table">
+          <thead><tr><th>ID de registro</th><th>ID de parte ERP</th><th>Material laminado</th><th>Masa (kg)</th><th>Total (µm)</th><th>PET (µm)</th><th>PA (µm)</th><th>EVOH (µm)</th><th>PE (µm)<span class="column-hint">calculado</span></th><th>Acción</th></tr></thead>
+          <tbody id="laminate-rows"></tbody>
+        </table>
+      </div>
+      <div id="empty" class="empty-state"><span class="empty-symbol" aria-hidden="true">＋</span><h3>Empieza con tu primer laminado</h3><p>Agrega los materiales que formarán parte de la mezcla.</p></div>
+      <div class="panel-actions">
+        <button id="calculate" class="button primary" type="button" disabled>Recalcular composición</button>
+        <button id="reset" class="button quiet" type="button" disabled>Restablecer mezcla</button>
+        <span id="activity" class="activity" role="status" aria-live="polite">Preparando configuración…</span>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="result-title">
+      <div class="panel-heading"><div><p class="eyebrow">02 / COMPOSICIÓN CONSOLIDADA</p><h2 id="result-title">Resultado de la formulación</h2></div><span id="global-status" class="status neutral" role="status">SIN RESULTADOS</span></div>
+      <div class="metrics">
+        <div><span class="metric-label">Laminados activos</span><strong id="active-count">0</strong></div>
+        <div><span class="metric-label">Masa total</span><strong id="total-mass">—</strong><span class="unit"> kg</span></div>
+        <div><span class="metric-label">Perfil técnico</span><strong id="profile" class="profile-label">Aglurep v1</strong></div>
+      </div>
+      <div class="table-scroll">
+        <table class="result-table"><thead><tr><th>Polímero</th><th>Masa (kg)</th><th>Composición (%)</th><th>Objetivo (%)</th><th>Límites (%)</th><th>Diferencia (pp)</th><th>Evaluación</th></tr></thead><tbody id="summary-rows"></tbody></table>
+      </div>
+      <p id="result-note" class="section-help result-note">Agrega laminados y recalcula para obtener una evaluación.</p>
+      <details id="individual-details" class="individual-details" hidden><summary>Ver resultados individuales por laminado</summary><div id="individual-results"></div></details>
+      <div class="panel-actions export-actions"><button id="export" class="button secondary" type="button" disabled>Exportar CSV</button><span id="calculation-id" class="calculation-id">Sin cálculo vigente</span></div>
+    </section>
+
+    <details id="configuration" class="panel configuration">
+      <summary><div><p class="eyebrow">03 / PARÁMETROS</p><h2>Configuración técnica</h2></div><span class="details-hint">Ver / editar</span></summary>
+      <div class="configuration-body"><p class="section-help">Los cambios invalidan el resultado vigente. Un perfil distinto del inicial se identifica como Personalizada. Los objetivos deben sumar 100 %.</p><div id="configuration-fields" class="config-grid"></div><button id="default-config" type="button" class="button quiet" disabled>Restaurar parámetros iniciales</button></div>
+    </details>
+    <dialog id="reset-dialog" aria-labelledby="reset-dialog-title" aria-describedby="reset-dialog-description">
+      <h2 id="reset-dialog-title">¿Restablecer la mezcla?</h2>
+      <p id="reset-dialog-description">Se retirarán todos los registros activos. Exporta el cálculo si necesitas conservarlo.</p>
+      <div class="dialog-actions"><button id="cancel-reset" type="button" class="button secondary" autofocus>Cancelar</button><button id="confirm-reset" type="button" class="button primary">Sí, restablecer mezcla</button></div>
+    </dialog>
+    <footer><span>Aglurep · Metodología espesor × densidad · v{{ version }}</span><span>Validación sin compensación entre polímeros.</span></footer>
+  </main>
+</body></html>
