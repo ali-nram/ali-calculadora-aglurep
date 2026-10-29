@@ -1,5 +1,6 @@
 """Puertos síncronos sustituibles por adaptadores HTTP."""
 from typing import Protocol, Any
+from decimal import Decimal
 from .models import TechnicalConfiguration, Laminate, Composition, Validation, Calculation
 
 class ConfigurationPort(Protocol):
@@ -14,6 +15,7 @@ class LaminatePort(Protocol):
     def remove(self, rows: tuple[Laminate, ...], record_id: str) -> tuple[Laminate, ...]: ...
 
 class CompositionPort(Protocol):
+    def pe_thickness(self, total: Decimal, thicknesses: dict[str, Decimal], record_id: str = "") -> Decimal: ...
     def calculate(self, laminates: tuple[Laminate, ...], configuration: TechnicalConfiguration) -> Composition: ...
 
 class ValidationPort(Protocol):

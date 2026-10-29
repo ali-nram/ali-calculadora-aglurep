@@ -12,6 +12,9 @@ def create_app(test_config=None, *, services=None):
     app.config.update(settings())
     if test_config:
         app.config.update(test_config)
+    if app.config["BEHIND_PROXY"]:
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=0, x_proto=1, x_host=0, x_port=0, x_prefix=0)
     supplied = services or {}
     configuration = supplied.get("configuration", ConfigurationService())
     laminates = supplied.get("laminates", LaminateService())

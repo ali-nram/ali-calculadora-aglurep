@@ -65,14 +65,41 @@ function invalidate(message = "Hay cambios pendientes. Recalcula para actualizar
   state.revision++; state.result = null; state.snapshot = null; clearErrors();
   $("export").disabled = true; $("activity").textContent = message;
   renderResults();
-  document.querySelectorAll(".pe-value").forEach(el => { el.textContent = "—"; el.removeAttribute("title"); });
+
+}
+// El backend comparte la misma fórmula para la vista previa y el cálculo definitivo.
+const peRequests = new Map();
+function refreshPE(row) {
+  const previous = peRequests.get(row.record_id);
+  if (previous) clearTimeout(previous.timer);
+  const request = {};
+  peRequests.set(row.record_id, request);
+  const cell = Array.from(document.querySelectorAll(".pe-value")).find(el => el.dataset.record === row.record_id);
+  if (!cell) return;
+  cell.textContent = "—"; cell.removeAttribute("title");
+  const total = decimalText(row.total_thickness_um);
+  const layers = Object.fromEntries(Object.entries(row.thicknesses).map(([p,value]) => [p,decimalText(value)]));
+  if (!total.trim() || Object.values(layers).some(value => !value.trim())) return;
+  cell.textContent = "…";
+  request.timer = setTimeout(async () => {
+    try {
+      const response = await api("/api/pe-thickness",{total_thickness_um:total,thicknesses:layers});
+      const data = await response.json();
+      if (peRequests.get(row.record_id) !== request || !cell.isConnected) return;
+      cell.textContent = format(data.pe_thickness_um); cell.title = data.pe_thickness_um;
+    } catch (error) {
+      if (peRequests.get(row.record_id) !== request || !cell.isConnected) return;
+      cell.textContent = error.details ? "Revisar espesores" : "Sin conexión";
+      cell.title = error.details?.[0]?.message || "No se pudo calcular PE. Edita un espesor para reintentar.";
+    }
+  }, 150);
 }
 function renderRows() {
   const tbody = $("laminate-rows"); tbody.replaceChildren();
   for (const row of state.rows) {
     const tr = element("tr"); tr.dataset.record = row.record_id;
     const idCell = element("td"); idCell.append(element("div", "record-id", row.record_id)); tr.append(idCell);
-    for (const [key,label] of [["erp_id","ID de parte ERP"],["material","Material laminado"],["mass_kg","Masa (kg)"],["total_thickness_um","Espesor total (µm)"],["thicknesses.PET","Espesor PET (µm)"],["thicknesses.PA","Espesor PA (µm)"],["thicknesses.EVOH","Espesor EVOH (µm)"]]) {
+    for (const [key,label] of [["erp_id","ID de parte ERP"],["material","Material laminado"],["total_thickness_um","Espesor total (µm)"],["mass_kg","Masa total (kg)"],["thicknesses.PET","Espesor PET (µm)"],["thicknesses.PA","Espesor PA (µm)"],["thicknesses.EVOH","Espesor EVOH (µm)"]]) {
       const td = element("td"), input = element("input");
       const [group,p] = key.split(".");
       input.value = p ? row[group][p] : row[group];
@@ -83,6 +110,7 @@ function renderRows() {
       input.addEventListener("input", () => {
         if (p) row[group][p] = input.value; else row[group] = input.value;
         invalidate();
+        if (group === "total_thickness_um" || group === "thicknesses") refreshPE(row);
       });
       td.append(input); tr.append(td);
     }
@@ -92,6 +120,7 @@ function renderRows() {
     remove.addEventListener("click", () => { state.rows = state.rows.filter(x => x.record_id !== row.record_id); invalidate(); renderRows(); });
     actions.append(remove); tr.append(actions); tbody.append(tr);
   }
+  state.rows.forEach(refreshPE);
   $("empty").hidden = state.rows.length > 0; $("count-badge").textContent = state.rows.length;
   $("active-count").textContent = state.rows.length; $("reset").disabled = state.rows.length === 0;
 }

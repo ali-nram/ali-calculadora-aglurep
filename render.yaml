@@ -1,0 +1,18 @@
+# Configuracion de despliegue para Render Blueprint. No contiene secretos.
+services:
+  - type: web
+    name: aglurep-calculadora
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python -m pytest -q
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --access-logfile - --error-logfile -
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: AGLUREP_ENV
+        value: production
+      - key: AGLUREP_BEHIND_PROXY
+        value: "1"
+      - key: AGLUREP_SECRET_KEY
+        generateValue: true

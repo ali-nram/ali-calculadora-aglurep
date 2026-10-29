@@ -2,8 +2,8 @@ from decimal import DecimalException
 from flask import Blueprint, current_app, jsonify, request, render_template, Response
 from itsdangerous import URLSafeSerializer, BadData
 from werkzeug.exceptions import HTTPException
-from app.domain.models import DomainError, wire, VERSION, METHOD
-from app.domain.parsing import object_fields
+from app.domain.models import DomainError, wire, VERSION, METHOD, LAYERS
+from app.domain.parsing import object_fields, number
 
 web = Blueprint("web", __name__)
 
@@ -33,6 +33,10 @@ def security_headers(response):
     response.headers["Cache-Control"] = "no-store"
     return response
 
+@web.get("/health")
+def health():
+    return jsonify(status="ok", version=VERSION)
+
 @web.get("/")
 def index():
     return render_template("index.html", version=VERSION)
@@ -47,6 +51,16 @@ def create_laminate():
     object_fields(data, ("configuration",), "request")
     config = services()["configuration"].validate(data["configuration"])
     return jsonify(laminate=services()["laminates"].create(config)), 201
+
+@web.post("/api/pe-thickness")
+def pe_thickness():
+    data = body()
+    object_fields(data, ("total_thickness_um", "thicknesses"), "request")
+    object_fields(data["thicknesses"], LAYERS, "thicknesses")
+    total = number(data["total_thickness_um"], "total_thickness_um", positive=True)
+    layers = {p: number(data["thicknesses"][p], "thicknesses." + p) for p in LAYERS}
+    value = services()["calculation"].composition.pe_thickness(total, layers)
+    return jsonify(pe_thickness_um=wire(value))
 
 @web.post("/api/calculate")
 def calculate():

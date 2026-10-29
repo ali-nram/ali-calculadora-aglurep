@@ -1,6 +1,10 @@
 # Calculadora de composición Aglurep v1
 
-Aplicación web local en Python 3.12 y Flask para formular mezclas de laminados, calcular su composición másica de PET, PE, PA y EVOH, evaluar límites técnicos y exportar cálculos trazables.
+Aplicación web en Python 3.12 y Flask para formular mezclas de laminados, calcular su composición másica de PET, PE, PA y EVOH, evaluar límites técnicos y exportar cálculos trazables.
+
+## Despliegue en Render
+
+El proyecto incluye Gunicorn, entrada WSGI, configuracion HTTPS, endpoint de salud y Blueprint. Sigue [RENDER.md](RENDER.md) para subirlo a GitHub y desplegarlo, sin usuarios ni base de datos.
 
 ## Instalación y ejecución
 
@@ -46,6 +50,8 @@ No guardes una clave real en el repositorio. El servidor incorporado se utiliza 
 1. Pulsa **Agregar laminado**. El backend genera un UUID y carga los espesores estándar.
 2. Completa el ID de parte ERP, el nombre libre del material, su masa en kg y el espesor total en µm. ERP y material son campos diferentes; varias filas pueden compartir ambos.
 3. Ajusta PET, PA y EVOH. Usa cero cuando una capa no exista. El material escrito no determina automáticamente qué capas existen.
+El espesor de PE se actualiza automáticamente al editar el total o las capas, incluso antes de completar ERP y masa.
+
 4. Pulsa **Recalcular composición**. El backend calcula PE, resultados individuales y consolidación, y evalúa cada criterio.
 5. Revisa masas, porcentajes, objetivos, límites, diferencias y estados. Los incumplimientos incluyen una explicación visible. Abre el detalle individual para consultar cada laminado.
 6. Pulsa **Exportar CSV** para conservar entradas, configuración y resultados en un archivo descargable. También se permiten formulaciones con estado **NO CUMPLE**.
@@ -157,6 +163,7 @@ El dominio y los servicios no importan Flask, plantillas, sesiones ni solicitude
 | GET / | HTML de la calculadora. |
 | GET /api/configuration | `configuration`, `version`, `methodology`. |
 | POST /api/laminates | `{configuration}` → `{laminate}` con UUID y borrador. |
+| POST /api/pe-thickness | Espesor total y capas PET/PA/EVOH → PE calculado automáticamente. |
 | POST /api/calculate | `{configuration, laminates}` → `{result, snapshot}`. |
 | POST /api/export | `{snapshot, inputs: {configuration, laminates}}` → descarga CSV. |
 

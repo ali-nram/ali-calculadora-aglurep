@@ -114,3 +114,13 @@ def test_create_defaults_and_unique_ids(client, payload):
     assert a.status_code == 201
     assert a.get_json()["laminate"]["record_id"] != b.get_json()["laminate"]["record_id"]
     assert a.get_json()["laminate"]["thicknesses"] == {"PET":"10","PA":"12","EVOH":"3"}
+
+@pytest.mark.parametrize("total,expected", [("100","75"),("200","175"),("25","0"),("25.125","0.125")])
+def test_live_pe_without_mass_or_erp(client, total, expected):
+    response = client.post("/api/pe-thickness", json={"total_thickness_um":total,"thicknesses":{"PET":"10","PA":"12","EVOH":"3"}})
+    assert response.status_code == 200
+    assert response.get_json()["pe_thickness_um"] == expected
+
+@pytest.mark.parametrize("total,layers", [("24",{"PET":"10","PA":"12","EVOH":"3"}),("",{"PET":"10","PA":"12","EVOH":"3"}),("100",{"PET":"-1","PA":"12","EVOH":"3"})])
+def test_live_pe_rejects_invalid_thicknesses(client, total, layers):
+    assert client.post("/api/pe-thickness", json={"total_thickness_um":total,"thicknesses":layers}).status_code == 422

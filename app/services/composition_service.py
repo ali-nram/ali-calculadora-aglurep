@@ -2,6 +2,14 @@ from decimal import Decimal, localcontext
 from app.domain.models import POLYMERS, LAYERS, Composition, LaminateResult, DomainError
 
 class CompositionService:
+    def pe_thickness(self, total, thicknesses, record_id=""):
+        with localcontext() as ctx:
+            ctx.prec = 50
+            pe = total - sum(thicknesses.values(), Decimal(0))
+            if pe < 0:
+                raise DomainError("Las capas PET, PA y EVOH superan el espesor total.", "total_thickness_um", record_id)
+            return pe
+
     def calculate(self, laminates, configuration) -> Composition:
         if not laminates:
             raise DomainError("Agregue al menos un laminado para calcular.", code="empty_mix")
@@ -10,9 +18,7 @@ class CompositionService:
             results = []
             for row in laminates:
                 thicknesses = dict(row.thicknesses)
-                pe = row.total_thickness_um - sum(thicknesses.values(), Decimal(0))
-                if pe < 0:
-                    raise DomainError("Las capas PET, PA y EVOH superan el espesor total.", "total_thickness_um", row.record_id)
+                pe = self.pe_thickness(row.total_thickness_um, thicknesses, row.record_id)
                 thicknesses["PE"] = pe
                 contributions = {p: thicknesses[p] * configuration.densities[p] for p in POLYMERS}
                 total = sum(contributions.values(), Decimal(0))
