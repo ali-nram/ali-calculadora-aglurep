@@ -71,6 +71,7 @@ class Calculation:
     configuration_profile: str
     composition: Composition
     validation: Validation
+    aglurep_id: str
 
 def wire(value: Any) -> Any:
     """Serialización sin conversión a float ni redondeos de presentación."""

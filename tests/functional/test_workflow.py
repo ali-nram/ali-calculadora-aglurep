@@ -2,6 +2,7 @@
 from copy import deepcopy
 from decimal import Decimal as D
 import csv
+import json
 import io
 
 def test_add_edit_remove_recalculate_export_reset(client, config):
@@ -11,7 +12,7 @@ def test_add_edit_remove_recalculate_export_reset(client, config):
     rows = []
     for material,mass in (("PET/HBA","20"),("PET/Flexible","5.5")):
         row = client.post("/api/laminates", json={"configuration":configuration}).get_json()["laminate"]
-        row.update(erp_id="000123",material=material,total_thickness_um="100",mass_kg=mass)
+        row.update(erp_id="000123" if not rows else "000124",material=material,total_thickness_um="100",mass_kg=mass)
         rows.append(row)
     payload = {"configuration":configuration,"laminates":deepcopy(rows)}
     first = client.post("/api/calculate", json=payload).get_json()
@@ -29,11 +30,11 @@ def test_add_edit_remove_recalculate_export_reset(client, config):
     exported = client.post("/api/export", json={"snapshot":current["snapshot"],"inputs":payload})
     records = list(csv.DictReader(io.StringIO(exported.data.decode("utf-8-sig"))))
     assert len(records) == 1
-    assert records[0]["id_registro"][1:] == rows[0]["record_id"]
-    assert records[0]["material_laminado"][1:] == "PET/Flexible"
-    assert {r["id_calculo"] for r in records} == {current["result"]["calculation_id"]}
-    assert D(records[0]["masa_total_mezcla_kg"]) == D("7")
-    assert records[0]["masa_PA_kg"] == "0"
+    assert json.loads(records[0]["partes_laminados_ERP"]) == ["000124"]
+    assert records[0]["cantidad_laminados"] == "1"
+    assert {r["id_aglurep"] for r in records} == {current["result"]["aglurep_id"]}
+    assert abs(sum(D(records[0][f"masa_{p}_kg"]) for p in ("PET","PE","PA","EVOH")) - D("7")) <= D("0.02")
+    assert records[0]["masa_PA_kg"] == "0.00"
     payload["laminates"] = []
     assert client.post("/api/calculate", json=payload).get_json()["status"] == "SIN RESULTADOS"
     assert client.post("/api/export", json={"snapshot":current["snapshot"],"inputs":payload}).status_code == 422
@@ -45,8 +46,10 @@ def test_two_active_rows_one_calculation_id(client, payload):
     current = client.post("/api/calculate", json=payload).get_json()
     exported = client.post("/api/export", json={"snapshot":current["snapshot"],"inputs":payload})
     records = list(csv.DictReader(io.StringIO(exported.data.decode("utf-8-sig"))))
-    assert len(records) == 2
-    assert {r["id_calculo"] for r in records} == {current["result"]["calculation_id"]}
+    assert len(records) == 1
+    assert records[0]["cantidad_laminados"] == "2"
+    assert json.loads(records[0]["partes_laminados_ERP"]) == ["000123", "000123"]
+    assert {r["id_aglurep"] for r in records} == {current["result"]["aglurep_id"]}
 
 def test_real_mixture_at_exact_pet_limit(client, payload):
     payload["laminates"] = []

@@ -63,7 +63,7 @@ No cambies la clave entre workers o reinicios. Si la rotas, los cálculos ya abi
 - `https://TU-SERVICIO.onrender.com/health` debe responder HTTP 200 con `status: ok`.
 - Agrega un laminado de 20 kg, total 200 µm y PET/PA/EVOH de 10/12/3 µm.
 - Sin recalcular, PE debe actualizarse automáticamente a 175 µm.
-- Pulsa Recalcular: el resultado debe ser CUMPLE. Descarga el CSV y comprueba ERP, masa e ID de cálculo.
+- Pulsa Recalcular: el resultado debe ser CUMPLE. Descarga el CSV y comprueba lista ERP, masas consolidadas e ID Aglurep.
 - Editar una capa debe invalidar la exportación hasta recalcular.
 - Si falla el build, revisa los logs de instalación/pruebas; si falla el arranque, comprueba las variables y el comando Gunicorn.
 

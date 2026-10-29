@@ -156,7 +156,7 @@ function renderResults() {
     tr.append(status); summary.append(tr);
   }
   $("result-note").textContent = result ? "Evaluación con valores sin redondear. Presentación: hasta 6 decimales; pasa el cursor sobre una cifra para ver su valor completo. " + (result.configuration_profile === "Personalizada" ? "Se utilizan parámetros personalizados." : "PET: límite máximo inclusivo del 10 %.") : "Sin evaluación vigente. Agrega laminados y recalcula.";
-  $("calculation-id").textContent = result ? "Cálculo " + result.calculation_id : "Sin cálculo vigente";
+  $("calculation-id").textContent = result ? "Aglurep " + result.aglurep_id + " | Cálculo " + result.calculation_id : "Sin cálculo vigente";
   $("individual-details").hidden = !result;
   const individual = $("individual-results"); individual.replaceChildren();
   if (result) {
@@ -225,7 +225,7 @@ $("export").addEventListener("click", async () => {
     const blob = await response.blob();
     if (revision !== state.revision) return;
     const url = URL.createObjectURL(blob), anchor = element("a");
-    anchor.href = url; anchor.download = "aglurep-" + state.result.calculation_id + ".csv";
+    anchor.href = url; anchor.download = state.result.aglurep_id + ".csv";
     document.body.append(anchor); anchor.click(); anchor.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     $("activity").textContent = "CSV exportado con la configuración y resultados vigentes.";
   } catch (error) {if (revision === state.revision) showError(error);}

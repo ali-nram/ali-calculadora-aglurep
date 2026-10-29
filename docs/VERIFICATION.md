@@ -95,3 +95,12 @@ El servidor de verificación es temporal y se detiene al finalizar la entrega. P
 - Flujo HTTPS de calculo y CSV verificado entre dos instancias independientes de la factoria con clave compartida.
 - Gunicorn se omite en Windows por marcador de plataforma. Su arranque Linux y el despliegue real quedan pendientes de ejecutarse en Render; no se afirma que se hayan probado aqui.
 - No se ha hecho commit, push ni creacion de servicios. Los pasos estan en RENDER.md.
+
+## CSV resumen por Aglurep
+
+- Una fila por Aglurep: id_aglurep, cantidad_laminados, partes_laminados_ERP (lista JSON), estado_global, cuatro masas kg, cuatro porcentajes y perfil_configuracion.
+- ID AGL-UUID diferente del ID de calculo, estable al repetir la exportacion y nuevo al recalcular. Se conserva en la instantanea firmada y se muestra en pantalla.
+- JSON preserva ERP duplicados, ceros iniciales y caracteres especiales; el prefijo fijo [ evita interpretaciones de formula.
+- Suite real: 140 passed in 1.20s. Incluye sumas consolidadas, retirada, multiples laminados en una fila, textos peligrosos, identidad y rechazo de firmas obsoletas.
+- CSV de ejemplo generado desde /api/calculate y /api/export: dos laminados, una fila, estado CUMPLE. Sintaxis JavaScript verificada con node --check.
+- El nuevo formato reemplaza al detalle anterior; requiere recalcular tras actualizar la aplicacion.

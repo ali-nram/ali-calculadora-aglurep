@@ -54,7 +54,7 @@ El espesor de PE se actualiza automáticamente al editar el total o las capas, i
 
 4. Pulsa **Recalcular composición**. El backend calcula PE, resultados individuales y consolidación, y evalúa cada criterio.
 5. Revisa masas, porcentajes, objetivos, límites, diferencias y estados. Los incumplimientos incluyen una explicación visible. Abre el detalle individual para consultar cada laminado.
-6. Pulsa **Exportar CSV** para conservar entradas, configuración y resultados en un archivo descargable. También se permiten formulaciones con estado **NO CUMPLE**.
+6. Pulsa **Exportar CSV** para conservar el resumen del Aglurep en un archivo descargable. También se permiten formulaciones con estado **NO CUMPLE**.
 7. **Retirar** elimina una fila de la mezcla activa. **Restablecer mezcla** abre una confirmación con opciones de cancelar y restablecer; conserva la configuración técnica.
 
 Agregar, editar, retirar o cambiar parámetros borra la evaluación vigente y bloquea exportar hasta recalcular. Las respuestas de cálculos anteriores se descartan si hubo cambios durante la solicitud.
@@ -149,7 +149,7 @@ pytest.ini
 | LaminateService | `create`, `selected`, `edit`, `remove`: UUID, validación, edición y retirada sobre colecciones de DTO. |
 | CompositionService | `calculate`: laminados validados + configuración → composición individual y consolidada. |
 | ValidationService | `validate`: composición + configuración → evaluación individual y global. |
-| ExportService | `export`: cálculo verificado → bytes CSV. El reloj se puede inyectar para pruebas. |
+| ExportService | `export`: cálculo verificado → bytes CSV. Exporta una fila por Aglurep calculado. |
 | CalculationService | Coordina validación de configuración y filas, cálculo y evaluación. No depende de Flask. |
 
 La gestión de edición y retirada ocurre sobre el estado del navegador. El backend recibe y valida el conjunto activo completo para cada cálculo; el servicio de gestión también expone operaciones puras de edición y retirada para integraciones futuras. Ninguna operación supone persistencia de filas en el servidor.
@@ -185,39 +185,30 @@ Todos los POST requieren `Content-Type: application/json`. Los resultados decima
 
 También se controlan JSON mal formado (400), ruta inexistente (404), método incorrecto (405), solicitud demasiado grande (413) y errores internos (500, con detalle solo en el log del servidor). Se devuelve el primer error detectado; después de corregirlo, pueden aparecer otros.
 
-## Exportación CSV y trazabilidad
+## Exportación CSV de Aglurep
 
-Un único CSV UTF-8 con BOM y separador coma, con una fila por laminado activo. Las comas o comillas dentro de textos se escapan mediante el módulo estándar `csv`.
+El archivo es un **resumen de una sola fila por Aglurep calculado**, independientemente del número de laminados. Usa UTF-8 con BOM y separador coma.
 
-Cada fila contiene:
-- ID del cálculo, fecha ISO 8601 con offset, zona America/Bogota, versión de aplicación y metodología.
-- Perfil técnico y estrategia de codificación de textos.
-- UUID del registro, ERP y material; masa y espesores originales, más PE calculado.
-- Densidades, espesores estándar, objetivos, tolerancias y límites utilizados.
-- Contribuciones, fracciones y kilogramos de cada polímero por laminado.
-- Cantidad de laminados, masa total, masas y porcentajes consolidados.
-- Diferencias respecto al objetivo, explicaciones, estados individuales y global.
+| Columna | Contenido |
+|---|---|
+| id_aglurep | Identificador AGL-UUID generado para el Aglurep calculado. |
+| cantidad_laminados | Número de registros activos incluidos, sin deduplicar ERP. |
+| partes_laminados_ERP | Lista JSON de los ID de parte ERP en el orden de la mezcla. |
+| estado_global | CUMPLE o NO CUMPLE según la evaluación vigente. |
+| masa_PET_kg, masa_PE_kg, masa_PA_kg, masa_EVOH_kg | Masas consolidadas con exactamente dos decimales. |
+| porcentaje_PET, porcentaje_PE, porcentaje_PA, porcentaje_EVOH | Porcentajes consolidados en escala 0–100, con exactamente dos decimales. |
+| perfil_configuracion | Aglurep v1 o Personalizada, para interpretar correctamente el cumplimiento. |
 
-Los consolidados se repiten para hacer cada archivo autocontenido. Todos los registros comparten el mismo ID de cálculo. La marca temporal corresponde a cada exportación; descargar de nuevo el mismo cálculo conserva su ID y actualiza la hora de exportación.
+El identificador Aglurep es diferente del ID técnico del cálculo y de los UUID de los laminados. Se genera al recalcular y queda incluido en la instantánea firmada. Exportar de nuevo el mismo cálculo conserva el ID Aglurep; recalcular genera otro. La interfaz muestra ambos identificadores y la descarga utiliza el ID Aglurep como nombre.
 
-La instantánea firmada incluye entradas normalizadas, configuración, ID de cálculo y versión metodológica. Exportar requiere firma válida y coincidencia con la mezcla vigente. El servidor reconstruye los cálculos; no acepta masas, porcentajes o estados calculados por el cliente. Si cambia el contenido, el orden de las filas o la representación decimal conservada por el contrato, hay que recalcular. No hay un historial persistente de firmas ni cálculos.
+La lista ERP contiene un elemento por registro: por ejemplo, `["000123", "000123", "000124"]` corresponde a tres laminados. Conserva ceros iniciales, duplicados, tildes, comillas y delimitadores dentro de cada ID. El módulo csv escapa las comillas de JSON de forma estándar. Para leer la lista con Python, utiliza `json.loads(fila["partes_laminados_ERP"])`.
 
-### Protección frente a fórmulas e identificadores
+El contenido de esa celda comienza siempre por `[`, evitando que un ERP que comience por `=`, `+`, `-` o `@` se interprete como fórmula. No se añade un apóstrofo ni se modifica el ERP original. Para hojas de cálculo, importa la columna como Texto. Para conservar todas las cifras decimales, importa también los números como Texto: Excel tiene menor precisión que Decimal.
 
-**Todos** los textos procedentes del usuario (ERP y material, además del identificador de fila) se prefijan con un apóstrofo ASCII. Por ejemplo:
+Las comprobaciones de firma, mezcla vigente, parámetros y errores siguen aplicándose. El backend reconstruye el cálculo antes de exportar y rechaza mezclas modificadas o con errores. Se permiten ensayos NO CUMPLE, con su estado explícito.
 
-```text
-ERP original:       000123
-ERP en el CSV:      '000123
-Material original: =SUM(1,2)
-Material en CSV:    '=SUM(1,2)
-Texto original:    'prefijo
-Texto en CSV:      ''prefijo
-```
+Este formato sustituye al CSV anterior de una fila por laminado. No incluye los espesores, densidades, entradas individuales ni metadatos completos de reconstrucción; su finalidad es resumir el Aglurep obtenido. No existe un historial persistente que permita recuperar una mezcla a partir de su ID. Después de actualizar a esta versión, recalcula antes de exportar para obtener una nueva instantánea compatible.
 
-La columna `codificacion_textos` declara `apostrofo_prefijado_v1`. Para reconstruir el valor original con un lector CSV, **retira exactamente el primer apóstrofo** de esas tres columnas; no uses `lstrip`, porque podría eliminar apóstrofos originales. No se modifica el contenido original en memoria ni se evalúan fórmulas.
-
-Para abrir en Excel o LibreOffice, importa como UTF-8, con separador coma y las columnas identificadoras y de texto configuradas explícitamente como **Texto**. Si necesitas conservar todas las cifras decimales, impórtalas también como texto; las hojas de cálculo tienen una precisión menor que Decimal. El prefijo puede aparecer visible según el programa y el método de importación. Evita convertir identificadores a números o retirar la protección antes de una apertura automática en una hoja de cálculo.
 
 ## Pruebas
 
@@ -244,3 +235,7 @@ La inspección interactiva del DOM, descargas y comportamiento responsive se ver
 - Para añadir persistencia, introducir una interfaz de repositorio y adaptar la gestión a mezclas identificadas. Para un historial trazable, guardar una instantánea inmutable de entradas, configuración, versión y resultados; no depender de la configuración actual para reconstruir cálculos históricos.
 - Autenticación y autorización se añadirían en el borde HTTP; un catálogo ERP y versionado de recetas serían módulos separados. Las firmas necesitarían una clave gestionada común si se usan varios procesos.
 - No se incluyen colas, Celery, Redis, Kafka, RabbitMQ ni orquestadores. No son necesarios para este flujo síncrono.
+
+### Decimales del CSV
+
+Las ocho columnas de masas y porcentajes se exportan con exactamente dos decimales (por ejemplo, 2.00), redondeando al mas cercano y los empates hacia arriba (ROUND_HALF_UP). El motor y la evaluacion mantienen precision completa. Las sumas de cifras redondeadas pueden diferir ligeramente del total; no se ajusta artificialmente ningun polimero. El estado puede ser NO CUMPLE aunque PET se muestre como 10.00 si su valor exacto supera el limite.

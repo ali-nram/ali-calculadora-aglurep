@@ -16,9 +16,9 @@ class CalculationService:
         normalized = {"configuration": wire(config), "laminates": wire(rows)}
         return config, rows, normalized
 
-    def calculate(self, data, calculation_id=None):
+    def calculate(self, data, calculation_id=None, aglurep_id=None):
         config, rows, normalized = self.prepare(data)
         composition = self.composition.calculate(rows, config)
         result = Calculation(calculation_id or str(uuid4()), config, self.configuration.profile(config),
-                             composition, self.validation.validate(composition, config))
+                             composition, self.validation.validate(composition, config), aglurep_id or "AGL-" + str(uuid4()))
         return result, normalized

@@ -11,7 +11,7 @@ def services():
     return current_app.extensions["aglurep"]
 
 def signer():
-    return URLSafeSerializer(current_app.config["SECRET_KEY"], salt="aglurep-calculation-v1")
+    return URLSafeSerializer(current_app.config["SECRET_KEY"], salt="aglurep-calculation-v2")
 
 def body():
     if not request.is_json:
@@ -65,7 +65,7 @@ def pe_thickness():
 @web.post("/api/calculate")
 def calculate():
     result, normalized = services()["calculation"].calculate(body())
-    snapshot = signer().dumps({"calculation_id": result.calculation_id, "methodology": METHOD, "inputs": normalized})
+    snapshot = signer().dumps({"calculation_id": result.calculation_id, "aglurep_id": result.aglurep_id, "methodology": METHOD, "inputs": normalized})
     return jsonify(result=wire(result), snapshot=snapshot)
 
 @web.post("/api/export")
@@ -81,9 +81,9 @@ def export():
     _, _, normalized = services()["calculation"].prepare(data["inputs"])
     if snapshot["methodology"] != METHOD or normalized != snapshot["inputs"]:
         raise DomainError("La mezcla o configuración cambió. Recalcule antes de exportar.", "snapshot", code="stale_snapshot")
-    result, _ = services()["calculation"].calculate(normalized, snapshot["calculation_id"])
+    result, _ = services()["calculation"].calculate(normalized, snapshot["calculation_id"], snapshot["aglurep_id"])
     return Response(services()["export"].export(result), content_type="text/csv; charset=utf-8",
-                    headers={"Content-Disposition": f'attachment; filename="aglurep-{result.calculation_id}.csv"'})
+                    headers={"Content-Disposition": f'attachment; filename="{result.aglurep_id}.csv"'})
 
 def register_errors(app):
     @app.errorhandler(DomainError)

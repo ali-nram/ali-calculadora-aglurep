@@ -1,5 +1,7 @@
 from copy import deepcopy
 import csv
+from decimal import Decimal, ROUND_HALF_UP
+import json
 import io
 import pytest
 
@@ -26,10 +28,10 @@ def test_calculation_and_download_match(client, payload):
     assert exported.mimetype == "text/csv"
     assert "attachment;" in exported.headers["Content-Disposition"]
     rows = list(csv.DictReader(io.StringIO(exported.data.decode("utf-8-sig"))))
-    assert rows[0]["id_calculo"] == data["result"]["calculation_id"]
+    assert rows[0]["id_aglurep"] == data["result"]["aglurep_id"]
     assert rows[0]["estado_global"] == "NO CUMPLE"
     for p in ("PET","PE","PA","EVOH"):
-        assert rows[0][f"porcentaje_{p}"] == data["result"]["composition"]["percentages"][p]
+        assert rows[0][f"porcentaje_{p}"] == format(Decimal(data["result"]["composition"]["percentages"][p]).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP), ".2f")
 
 @pytest.mark.parametrize("payload", [None, [], {}, {"laminates":[]}, {"configuration":{}, "laminates":[]}])
 def test_bad_structure(client, payload):
@@ -94,8 +96,8 @@ def test_csv_text_protection(client, payload, text):
     data = client.post("/api/calculate", json=payload).get_json()
     response = client.post("/api/export", json={"snapshot":data["snapshot"], "inputs":payload})
     row = next(csv.DictReader(io.StringIO(response.data.decode("utf-8-sig"))))
-    assert row["id_parte_ERP"] == "'" + text
-    assert row["id_parte_ERP"][1:] == text
+    assert row["partes_laminados_ERP"].startswith("[")
+    assert json.loads(row["partes_laminados_ERP"]) == [text]
 
 def test_dependency_injection_and_controlled_internal_error(app, client, payload):
     class BrokenComposition:
@@ -124,3 +126,21 @@ def test_live_pe_without_mass_or_erp(client, total, expected):
 @pytest.mark.parametrize("total,layers", [("24",{"PET":"10","PA":"12","EVOH":"3"}),("",{"PET":"10","PA":"12","EVOH":"3"}),("100",{"PET":"-1","PA":"12","EVOH":"3"})])
 def test_live_pe_rejects_invalid_thicknesses(client, total, layers):
     assert client.post("/api/pe-thickness", json={"total_thickness_um":total,"thicknesses":layers}).status_code == 422
+
+def test_export_keeps_product_id_and_recalculation_creates_another(client, payload):
+    first = client.post("/api/calculate", json=payload).get_json()
+    exports = [client.post("/api/export", json={"snapshot":first["snapshot"], "inputs":payload}) for _ in range(2)]
+    for response in exports:
+        assert response.status_code == 200
+        row = next(csv.DictReader(io.StringIO(response.data.decode("utf-8-sig"))))
+        assert row["id_aglurep"] == first["result"]["aglurep_id"]
+        assert first["result"]["aglurep_id"] in response.headers["Content-Disposition"]
+    second = client.post("/api/calculate", json=payload).get_json()
+    assert first["result"]["aglurep_id"] != second["result"]["aglurep_id"]
+
+def test_old_snapshot_requires_recalculation(app, client, payload):
+    from itsdangerous import URLSafeSerializer
+    old_snapshot = URLSafeSerializer(app.config["SECRET_KEY"], salt="aglurep-calculation-v1").dumps({"inputs":payload})
+    response = client.post("/api/export", json={"snapshot":old_snapshot,"inputs":payload})
+    assert response.status_code == 422
+    assert response.get_json()["errors"][0]["code"] == "invalid_snapshot"
